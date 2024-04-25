@@ -15,7 +15,7 @@ export const getTxt = async () => {
   return data;
 };
 
-export const addNewTxt = async ({ id, text }: ITodo) => {
+export const addNewTxt = async ({ id, text, date }: ITodo) => {
   const res = await fetch("http://localhost:8000/todos", {
     method: "POST",
     mode: "cors", // no-cors, *cors, same-origin
@@ -24,10 +24,8 @@ export const addNewTxt = async ({ id, text }: ITodo) => {
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ id, text }),
+    body: JSON.stringify({ id, text, date }),
   });
   const data = await res.json();
-
-  console.log({ data });
   return Response.json({ data });
 };

@@ -2,30 +2,52 @@
 import { Container } from "@mui/material";
 import Button from "@mui/material/Button";
 import SimpleDialog from "../components/SimpleDialog.component";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
 import { Toaster } from "react-hot-toast";
 import { getTxt } from "../apis/todos";
 import { ITodo } from "../types";
 import AccordionExpand from "../components/Accordion.component";
-import AddIcon from "@mui/icons-material/Add";
+import { EmptyPage } from "../components/Empty.component";
+import { useImmerReducer } from "use-immer";
+import dayjs from "dayjs";
 
 const Dashboard = () => {
-  const [open, setOpen] = useState(false);
+  const [openStatus, setOpen] = useState<{ isOpen: boolean; type?: string }>({
+    isOpen: false,
+    type: "new",
+  });
+  const [todoItems, setTodoItems] = useState<ITodo[]>([]);
+  const [crudState, crudDispatch] = useImmerReducer<any[]>(
+    crudReducer,
+    todoItems
+  );
 
-  const [todos, setTodos] = useState<ITodo[]>([]);
+  const getTodoItems = useCallback(async () => {
+    const res = await getTxt();
+    setTodoItems(res);
+  }, [setTodoItems]);
 
   const handleAddNew = useCallback(() => {
-    setOpen(true);
+    setOpen({
+      isOpen: true,
+      type: "new",
+    });
   }, [setOpen]);
 
-  //one-mount
+  const dateList = useMemo(() => {
+    return mappingDate(todoItems);
+  }, [todoItems]);
+
+  const dataByDate = useMemo(() => {
+    return mappingDataByDate(todoItems, dateList);
+  }, [dateList, todoItems]);
+
   useEffect(() => {
-    //setup
-    const callApi = async () => {
-      const res = await getTxt();
-      setTodos(res);
-    };
-    callApi();
+    getTodoItems();
+  }, [crudState, getTodoItems]);
+
+  useEffect(() => {
+    console.log("re-render");
   }, []);
 
   return (
@@ -43,28 +65,71 @@ const Dashboard = () => {
         <div className="mt-4">
           <h1 className="font-bold text-2xl mb-4">To Do List</h1>
 
-          {todos.length ? (
-            todos.map((item) => {
+          {dateList.length ? (
+            dateList.map((date, index) => {
               return (
-                <div key={item.id} className="mb-4 last:mb-0">
-                  <AccordionExpand />
+                <div key={index} className="mb-4 last:mb-0">
+                  <AccordionExpand
+                    date={date}
+                    data={dataByDate}
+                    dispatch={crudDispatch}
+                  />
                 </div>
               );
             })
           ) : (
-            <Container  onClick={handleAddNew} className="w-full min-h-[600px] border-[2px] flex items-center justify-center hover:cursor-pointer hover:text-red-500">
-              <p className="text-[40px]">Empty List, pls add todo more</p>
-              <AddIcon className="ml-4 rounded-full border-[2px] w-[60px] h-[60px]" />
-            </Container>
+            <EmptyPage />
           )}
         </div>
       </Container>
 
-      <SimpleDialog open={open} onClose={() => setOpen(false)} />
+      <SimpleDialog
+        open={openStatus.isOpen}
+        onClose={() =>
+          setOpen({
+            isOpen: false,
+          })
+        }
+        dispatch={crudDispatch}
+      />
 
       <Toaster />
     </>
   );
 };
+
+function crudReducer(state: any, action: any) {
+  console.log("reducer running");
+  switch (action.type) {
+    case "add":
+      state.push(action.payload);
+      break;
+    case "edit":
+      let tmp = action.pay;
+      break;
+    default:
+      break;
+  }
+}
+
+function mappingDate(data: ITodo[]) {
+  let tmp = {} as any;
+  data.forEach((item) => {
+    let _date = dayjs(item.date).format("DD/MM/YYYY");
+    if (!tmp.hasOwnProperty(_date)) {
+      tmp[_date] = new Array();
+    }
+  });
+  return Object.keys(tmp);
+}
+
+function mappingDataByDate(data: ITodo[], dateList: string[]) {
+  let obj = dateList.reduce((a, c) => ({ ...a, [c]: [] }), {}) as any;
+  data.forEach((item) => {
+    let _date = dayjs(item.date).format("DD/MM/YYYY");
+    obj[_date] = [...obj[_date], item];
+  });
+  return obj;
+}
 
 export default Dashboard;
